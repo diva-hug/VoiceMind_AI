@@ -1,94 +1,67 @@
+
 from pathlib import Path
+import re
+import math
 
-import faiss
-from sentence_transformers import SentenceTransformer
-
-# path 
-
-BASE_DIR =Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 KNOWLEDGE_DIR = BASE_DIR / "Knowledge"
 
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "am", "i", "you", "my",
+    "me", "to", "for", "of", "in", "on", "and", "or", "it",
+    "can", "could", "would", "do", "does", "did", "what",
+    "how", "when", "where", "please", "want", "know"
+}
 
-# load_Embedding model 
 
-model =SentenceTransformer("all-MiniLM-L6-v2")
+def tokenize(text):
+    words = re.findall(r"[a-zA-Z0-9]+", text.lower())
+    return [word for word in words if word not in STOP_WORDS]
 
-#load_knowledge documents 
 
 documents = []
 
-for file_path in KNOWLEDGE_DIR.glob("*.txt"):
-
-    text = file_path.read_text(encoding="utf-8")
-
-    documents.append(
-        {
-            "source": file_path.name,
-            "content": text,
-        }
-    )
+for file_path in sorted(KNOWLEDGE_DIR.glob("*.txt")):
+    content = file_path.read_text(encoding="utf-8")
+    documents.append({
+        "source": file_path.name,
+        "content": content,
+        "words": set(tokenize(file_path.stem + " " + content)),
+    })
 
 print("Knowledge directory:", KNOWLEDGE_DIR)
 print("Documents loaded:", len(documents))
-print("Document names:", [doc["source"] for doc in documents])
-
-# Create Embeddings
-
-texts = [document["content"] for document in documents]
-
-embeddings = model.encode(
-    texts,
-    convert_to_numpy=True,
-)
-embeddings =embeddings.astype("float32")
-
-# Creatte FAISS index 
-
-dimension = embeddings.shape[1]
-
-index =faiss.IndexFlatL2(dimension)
-
-index.add(embeddings)
-
-# retrieval function 
 
 
 def retrieve(query, top_k=3):
-    query_embedding =model.encode(
-        [query],
-        convert_to_numpy=True
-    ).astype("float32")
+    query_words = set(tokenize(query))
 
-    distances , indices = index.search(
-        query_embedding,
-        min(top_k,len(documents)),
-    )
+    if not query_words:
+        return []
 
-    results = []
+    scored_documents = []
 
-    for index_position in  indices[0]:
-        document =documents[index_position]
+    for document in documents:
+        matches = query_words & document["words"]
 
-        results.append(
-            {
-                "source":document["source"],
-                "content":document["content"],
-            }
-        )
-    return results
+        if matches:
+            score = len(matches) / math.sqrt(len(document["words"]))
+            scored_documents.append((score, document))
 
-# testing 
+    scored_documents.sort(key=lambda item: item[0], reverse=True)
 
-if __name__ =="__main__":
-    question = "can i return a proudct "
+    return [
+        {
+            "source": document["source"],
+            "content": document["content"],
+        }
+        for score, document in scored_documents[:top_k]
+    ]
 
-    results = retrieve(question)
 
-    print("\n Retrieve Documents:\n")
+if __name__ == "__main__":
+    results = retrieve("Can I return a product?")
 
     for result in results:
-        print("="*70)
-
-        print("SOURCE:",result["source"])
-
+        print("\nSOURCE:", result["source"])
         print(result["content"][:500])
