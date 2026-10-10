@@ -1,0 +1,30 @@
+{
+    "ORD1001": {
+        "customer_name": "Rahul",
+        "status": "Shipped",
+        "product": "Wireless Headphones",
+        "order_date": "2026-10-05",
+        "expected_delivery": "2026-10-10"
+    },
+    "ORD1002": {
+        "customer_name": "Priya",
+        "status": "Delivered",
+        "product": "Smart Watch",
+        "order_date": "2026-10-01",
+        "expected_delivery": "2026-10-06"
+    },
+    "ORD1003": {
+        "customer_name": "Arjun",
+        "status": "Processing",
+        "product": "Bluetooth Speaker",
+        "order_date": "2026-10-07",
+        "expected_delivery": "2026-10-12"
+    },
+    "ORD1004": {
+        "customer_name": "Sneha",
+        "status": "Delayed",
+        "product": "Laptop Backpack",
+        "order_date": "2026-10-03",
+        "expected_delivery": "2026-10-09"
+    }
+}

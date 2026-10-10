@@ -1,0 +1,25 @@
+VOICE-MIND E-COMMERCE FAQ
+
+Q: How can I check my order status?
+A: Customers can check their order status using their order ID. If the order information is unavailable, the customer should contact customer support.
+
+Q: How long does delivery usually take?
+A: Standard delivery usually takes 3 to 5 business days after the order has been shipped.
+
+Q: Can I cancel my order?
+A: Orders can be cancelled before they are shipped. Once an order has been shipped, cancellation may no longer be possible.
+
+Q: Can I return a product?
+A: Customers can request a return within 7 days of receiving an eligible product.
+
+Q: How long does a refund take?
+A: After a return is approved and processed, refunds usually take 5 to 7 business days to appear in the customer's original payment method.
+
+Q: What should I do if my payment failed?
+A: Customers should first verify their payment details and try the payment again. If the payment continues to fail, customer support should investigate the issue.
+
+Q: What if my order is delayed?
+A: Customers should provide their order ID so that the support system can check the current order and delivery information.
+
+Q: Can I speak to a human support agent?
+A: Yes. Customers can request a human support agent at any time.

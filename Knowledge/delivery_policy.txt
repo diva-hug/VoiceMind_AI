@@ -1,0 +1,19 @@
+DELIVERY POLICY
+
+Standard Delivery:
+Standard delivery usually takes 3 to 5 business days after an order has been shipped.
+
+Delivery Delays:
+Delivery may take longer because of:
+- Weather conditions
+- Carrier delays
+- High order volume
+- Incorrect delivery information
+- Operational issues
+
+Delayed Orders:
+If a customer reports a delayed order, the support agent should request the order ID and check the available order information.
+
+Important:
+The support agent must never invent a delivery date or order status.
+If current order information is unavailable, the customer should be informed honestly and offered human support when necessary.

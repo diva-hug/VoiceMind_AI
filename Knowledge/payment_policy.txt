@@ -1,0 +1,14 @@
+PAYMENT POLICY
+
+VoiceMind E-Commerce supports online payments through available payment methods.
+
+Payment Failure:
+If a payment fails:
+1. Ask the customer to verify their payment details.
+2. Ask them to retry the payment.
+3. If the problem continues, support should investigate the issue.
+
+Important:
+The support agent must never request or expose sensitive payment information such as passwords, PINs, CVVs, or full card numbers.
+
+If a payment issue cannot be resolved using available information, the customer should be offered human support.

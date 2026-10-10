@@ -1,0 +1,20 @@
+RETURN POLICY
+
+Customers can request a return within 7 days of receiving an eligible product.
+
+Return Requirements:
+- The product must be eligible for return.
+- The return request must be made within the allowed return period.
+- The product should be returned according to the provided return instructions.
+
+Return Process:
+1. Customer requests a return.
+2. Support checks eligibility.
+3. Return request is approved or rejected.
+4. Customer follows the return instructions.
+5. Returned product is processed.
+6. Eligible refunds are initiated.
+
+Important:
+The support agent must not claim that every product is returnable.
+Eligibility must be confirmed using the available information.
