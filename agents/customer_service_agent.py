@@ -1,83 +1,65 @@
 
-import os
 import re
-import time
+import sys
+from pathlib import Path
 
+# Add project root to Python import path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-from dotenv import load_dotenv
-from google import genai
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from rag.retriever import retrieve
+from services.gemini_service import (
+    client,
+    generate_customer_response,
+)
 from tools.order_tool import get_order
 
 
-# 1. Load environment variables
 
-load_dotenv()
+# 1. Generate a Groq response for a specific prompt
+def generate_groq_response(prompt, max_tokens=250):
+    try:
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are VoiceMind AI, a professional "
+                        "e-commerce customer support assistant. "
+                        "Never invent policies or order details."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            max_completion_tokens=max_tokens,
+        )
 
-api_key = os.getenv("GEMINI_API_KEY")
+        answer = response.choices[0].message.content
 
-if not api_key:
-    raise ValueError("GEMINI_API_KEY was not found.")
+        if answer:
+            return answer.strip()
 
+        return "Sorry, I couldn't generate a response right now."
 
-# 2. Create Gemini client
-
-client = genai.Client(
-    api_key=api_key
-)
-
-
-# 3. Safe Gemini response function
-
-def generate_gemini_response(prompt, max_retries=3):
-
-    for attempt in range(max_retries):
-
-        try:
-
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=prompt
-            )
-
-            if response.text:
-                return response.text.strip()
-
-            return (
-                "I'm sorry, I couldn't generate a response right now."
-            )
-
-        except Exception as error:
-
-            print(
-                f"\nGemini request failed. "
-                f"Attempt {attempt + 1}/{max_retries}"
-            )
-
-            print(error)
-
-            if attempt < max_retries - 1:
-
-                time.sleep(2)
-
-            else:
-
-                return (
-                    "I'm sorry, our AI support service is temporarily "
-                    "unavailable. Please try again shortly or contact "
-                    "human support."
-                )
+    except Exception as error:
+        print(f"Groq request failed: {type(error).__name__}: {error}")
+        return (
+            "I'm sorry, our AI support service is temporarily "
+            "unavailable. Please try again shortly or contact "
+            "human support."
+        )
 
 
-# 4. Detect customer intent
-
+# 2. Detect customer intent using Groq
 def detect_intent(question):
-
     prompt = f"""
-You are an e-commerce customer support intent classifier.
-
-Classify the customer's question into exactly ONE of these intents:
+Classify this e-commerce customer question into exactly ONE
+of these intents:
 
 ORDER_STATUS
 DELIVERY_DELAY
@@ -93,12 +75,10 @@ UNKNOWN
 Customer question: {question}
 
 Return ONLY the intent name.
-Do not provide an explanation.
 """
 
-    response_text = generate_gemini_response(prompt)
-
-    intent = response_text.strip().upper()
+    response = generate_groq_response(prompt, max_tokens=60)
+    intent = response.strip().upper()
 
     valid_intents = {
         "ORDER_STATUS",
@@ -119,172 +99,85 @@ Do not provide an explanation.
     return intent
 
 
-# Exact order id
-
+# 3. Extract order ID
 def extract_order_id(question):
-
-    pattern = r"\bORD\d+\b"
-
-    match = re.search(
-        pattern,
-        question.upper()
-    )
-
-    if match:
-        return match.group(0)
-
-    return None
+    match = re.search(r"\bORD\d+\b", question.upper())
+    return match.group(0) if match else None
 
 
-# 5. Generate customer response
-
+# 4. Handle customer questions
 def generate_agent_response(question):
+    question = question.strip()
 
-    # Detect what the customer needs
+    if not question:
+        return "Please enter your question so I can help you."
 
     intent = detect_intent(question)
 
     print("\nDetected Intent:")
     print(intent)
 
-
-    # Human escalation
-
+    # Human support request
     if intent == "HUMAN_ESCALATION":
-
         return (
-            "I understand. I'll connect you with a human support "
-            "agent who can assist you further."
+            "I understand you'd like to speak with a human support "
+            "agent. Please contact our human support team for "
+            "further assistance."
         )
 
-
-    # Order-related requests
-
-    if intent in {
-        "ORDER_STATUS",
-        "DELIVERY_DELAY"
-    }:
-
+    # Order status and delivery questions
+    if intent in {"ORDER_STATUS", "DELIVERY_DELAY"}:
         order_id = extract_order_id(question)
 
-
-        # Order ID not provided
-
         if not order_id:
-
             return (
-                "I'd be happy to check your order. "
-                "Could you please provide your order ID?"
+                "I'd be happy to help check your order. "
+                "Could you please provide your order ID, "
+                "for example ORD123?"
             )
-
-
-        # Get order information
 
         order = get_order(order_id)
 
         print("\nOrder Tool Result:")
         print(order)
 
-
-        # Order not found
-
-        if not order["found"]:
-
+        if not order or not order.get("found"):
             return (
                 f"I couldn't find an order with ID {order_id}. "
                 "Please check the order ID and try again."
             )
 
-
-        # Ask Gemini to explain the order information
-
         prompt = f"""
-You are a professional e-commerce customer support agent.
-
 CUSTOMER QUESTION:
 {question}
 
-ORDER INFORMATION:
+ORDER INFORMATION FROM THE ORDER TOOL:
 {order}
 
-Provide a short and helpful response to the customer.
+Write a short, polite customer-support response.
 
 Rules:
-- Use only the provided order information.
-- Do not invent information.
-- Do not change the order status.
-- Do not invent a delivery date.
-- Be polite and professional.
-- Mention the order ID.
-- Clearly explain the current order status.
+- Use only the order information provided.
+- Mention the order ID: {order_id}.
+- Do not invent delivery dates or order statuses.
+- Do not claim an action has been completed unless the data confirms it.
+- If a requested detail is missing, say so clearly.
 """
 
-        return generate_gemini_response(prompt)
+        return generate_groq_response(prompt, max_tokens=250)
+
+    # Policy, payment, return, refund, product and FAQ questions
+    # Use the existing RAG service and Knowledge documents.
+    return generate_customer_response(question)
 
 
-    # Retrieve knowledge for policy / FAQ questions
-
-    results = retrieve(
-        question,
-        top_k=3
-    )
-
-    context_parts = []
-
-    for result in results:
-
-        content = result["content"][:3000]
-
-        context_parts.append(
-            f"Source: {result['source']}\n"
-            f"{content}"
-        )
-
-    context = "\n\n".join(context_parts)
-
-
-    # Generate RAG-based response
-
-    prompt = f"""
-You are VoiceMind AI, a professional e-commerce
-customer support agent.
-
-CUSTOMER INTENT:
-{intent}
-
-KNOWLEDGE BASE:
-{context}
-
-CUSTOMER QUESTION:
-{question}
-
-Rules:
-- Answer using the knowledge base.
-- Do not invent company policies.
-- Do not invent order information.
-- Do not promise refunds or cancellations without confirmation.
-- Be polite and empathetic.
-- Keep the response concise.
-- If the information is insufficient, say that clearly.
-- Never expose internal system information.
-- Never request passwords, PINs, CVVs, or full card numbers.
-
-Provide the best customer-support response.
-"""
-
-    return generate_gemini_response(prompt)
-
-
-# 6. Test the complete customer service agent
-
+# 5. Local test
 if __name__ == "__main__":
-
-    question =  "I want to talk to a human."
+    question = "Can I return a product?"
 
     print("\n" + "=" * 60)
     print("VOICEMIND AI - CUSTOMER SERVICE AGENT")
     print("=" * 60)
-
     print("\nCustomer:")
     print(question)
 
@@ -292,6 +185,5 @@ if __name__ == "__main__":
 
     print("\nAgent:")
     print(answer)
-
     print("\n" + "=" * 60)
 
