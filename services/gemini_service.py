@@ -1,66 +1,53 @@
+
 import os
 
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from rag.retriever import retrieve
 
-
-# 1.Load environment variables
-
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    raise ValueError("GEMINI_API_KEY was not found in the .env file.")
+    raise ValueError("GROQ_API_KEY was not found in the .env file.")
 
-# 2. Create Gemini client
 
-client = genai.Client(
-    api_key=api_key
+client = Groq(
+    api_key=api_key,
+    timeout=20.0,
+    max_retries=0
 )
 
 
-# 3. Generate customer support response
-
 def generate_customer_response(question):
+    try:
+        results = retrieve(question, top_k=3)
 
-    # Retrieve relevant documents from Knowledge Base
+        print("\nRetrieved Documents:")
 
-    results = retrieve(
-        question,
-        top_k=3
-    )
+        context_parts = []
 
-    print("\nRetrieved Documents:")
+        for result in results:
+            print("-", result["source"])
 
-    for result in results:
-        print("-", result["source"])
+            content = result["content"][:3000]
 
+            context_parts.append(
+                f"Source: {result['source']}\n{content}"
+            )
 
-    # Build a smaller RAG context
+        context = "\n\n".join(context_parts)
 
-    context_parts = []
-
-    for result in results:
-
-        content = result["content"]
-
-        # Keep the context manageable
-        content = content[:3000]
-
-        context_parts.append(
-            f"Source: {result['source']}\n"
-            f"{content}"
-        )
-
-    context = "\n\n".join(context_parts)
-
-
-    # Create prompt for Gemini
-
-    prompt = f"""
+        prompt = f"""
 You are a professional e-commerce customer support agent.
 
 Answer the customer's question using ONLY the knowledge base
@@ -74,47 +61,53 @@ CUSTOMER QUESTION:
 
 RULES:
 - Use only the provided knowledge base.
-- Do not invent policies or information.
-- Do not invent order information.
-- Do not make promises that are not supported by the knowledge base.
-- If the information is insufficient, clearly say that you do not have enough information.
+- Do not invent policies or order information.
+- Do not make unsupported promises.
+- If information is insufficient, clearly say so.
 - Be polite and helpful.
-- Keep the answer concise.
-- Give the customer a clear and direct answer.
+- Keep the answer concise and direct.
 """
 
-    # Generate response using Gemini
-
-    try:
-
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt
+        response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a careful customer support assistant. "
+                        "Follow the knowledge-base restrictions."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_completion_tokens=400
         )
 
-        if not response.text:
-            return "I'm sorry, but I couldn't generate a response right now."
+        answer = response.choices[0].message.content
 
-        return response.text.strip()
+        if not answer:
+            return "Sorry, I couldn't generate a response right now."
+
+        return answer.strip()
 
     except Exception as error:
-
-        print("\nGemini API Error:")
-        print(error)
+        print("\nGroq API Error:")
+        print(f"{type(error).__name__}: {error}")
 
         return (
             "I'm sorry, I'm unable to process your request right now. "
             "Please try again later or contact human support."
         )
 
-# 4. Test the complete RAG + Gemini pipeline
 
 if __name__ == "__main__":
-
     question = "Can I return a product?"
 
     print("\n" + "=" * 60)
-    print("VOICE MIND AI - CUSTOMER SUPPORT TEST")
+    print("VOICEMIND AI - CUSTOMER SUPPORT TEST")
     print("=" * 60)
 
     print("\nCustomer Question:")
@@ -122,7 +115,7 @@ if __name__ == "__main__":
 
     answer = generate_customer_response(question)
 
-    print("\nGemini Response:")
+    print("\nGroq Response:")
     print(answer)
 
     print("\n" + "=" * 60)
